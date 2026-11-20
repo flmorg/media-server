@@ -1,0 +1,101 @@
+deployment:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  containers:
+    - name: cross-seed
+      image:
+        repository: ghcr.io/cross-seed/cross-seed
+        tag: "6"
+      ports:
+        - name: http
+          containerPort: 2468
+      command:
+        - /usr/bin/catatonit
+        - --
+        - /usr/local/bin/cross-seed
+        - daemon
+        - --verbose
+      resources:
+        requests:
+          cpu: 0m
+          memory: 0Mi
+        limits:
+          cpu: 1000m
+          memory: 256Mi
+      volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: cache
+          mountPath: /config/torrent_cache
+        - name: logs
+          mountPath: /config/logs
+        - name: output
+          mountPath: /output
+        - name: storage
+          mountPath: /downloads
+          subPath: media/downloads
+  volumes:
+    - name: config
+      type: pvc
+      typeName: config-pvc
+    - name: cache
+      type: pvc
+      typeName: cache-pvc
+    - name: logs
+      type: pvc
+      typeName: logs-pvc
+    - name: output
+      type: pvc
+      typeName: output-pvc
+    - name: storage
+      type: pvc
+      typeName: storage-pvc
+
+pvcs:
+  - name: config-pvc
+    storageClassName: longhorn
+    role: config
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: cache-pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: logs-pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: output-pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: storage-pvc
+    storageClassName: local-path-persistent
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+    volumeMode: Filesystem
+
+services:
+  - name: service
+    type: ClusterIP
+    ports:
+      - name: http
+        protocol: TCP
+        port: 80
+        targetPort: 8181
+
+vaultSecrets:
+  - name: tls-secret
+    type: kubernetes.io/tls
+    path: secrets/certificates
+    templates:
+      tls.crt: "{% .Secrets.tls_crt %}"
+      tls.key: "{% .Secrets.tls_key %}"

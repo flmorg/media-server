@@ -1,0 +1,98 @@
+deployment:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  containers:
+    - name: tautulli
+      image:
+        repository: ghcr.io/tautulli/tautulli
+        tag: latest
+      ports:
+        - name: http
+          containerPort: 8181
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Bucharest
+      resources:
+        requests:
+          cpu: 0m
+          memory: 0Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+      volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: cache
+          mountPath: /config/cache
+        - name: logs
+          mountPath: /config/logs
+  volumes:
+    - name: config
+      type: pvc
+      typeName: config-pvc
+    - name: cache
+      type: pvc
+      typeName: cache-pvc
+    - name: logs
+      type: pvc
+      typeName: logs-pvc
+
+ingresses:
+  - name: ingress
+    tls:
+      secretName: tls-secret
+    hosts:
+      - host: tau.@vault(secrets/data/domain main | DOMAIN_NAME)
+        paths:
+          - path: "/"
+            pathType: Prefix
+            serviceName: service
+            servicePort: http
+
+pvcs:
+  - name: config-pvc
+    storageClassName: longhorn
+    role: config
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: cache-pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: logs-pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  - name: storage-pvc
+    storageClassName: local-path-persistent
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+    volumeMode: Filesystem
+
+services:
+  - name: service
+    type: ClusterIP
+    ports:
+      - name: http
+        protocol: TCP
+        port: 80
+        targetPort: 8181
+
+vaultSecrets:
+  - name: tls-secret
+    type: kubernetes.io/tls
+    path: secrets/certificates
+    templates:
+      tls.crt: "{% .Secrets.tls_crt %}"
+      tls.key: "{% .Secrets.tls_key %}"
