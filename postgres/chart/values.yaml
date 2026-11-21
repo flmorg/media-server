@@ -1,0 +1,12 @@
+vaultSecrets:
+  - name: postgres-s3
+    path: secrets/seaweed
+    templates:
+      ACCESS_KEY_ID: "{% .Secrets.ADMIN_ACCESS_KEY_ID %}"
+      ACCESS_SECRET_KEY: "{% .Secrets.ADMIN_SECRET_ACCESS_KEY %}"
+  - name: postgres-app-tracearr
+    type: kubernetes.io/basic-auth
+    path: secrets/postgres
+    templates:
+      username: tracearr
+      password: "{% .Secrets.tracearr_password %}"

@@ -1,0 +1,45 @@
+fullnameOverride: postgres
+
+version:
+  postgresql: "18"
+
+cluster:
+  instances: 1
+  enablePDB: false
+  monitoring:
+    instrumentation:
+      logicalReplication: false
+  storage:
+    size: 10Gi
+    storageClass: longhorn
+  roles:
+    - name: tracearr
+      login: true
+      passwordSecret:
+        name: postgres-app-tracearr
+
+backups:
+  enabled: true
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+  provider: s3
+  endpointURL: http://seaweedfs-s3.seaweedfs.svc:8333
+  destinationPath: s3://postgres-backups/
+  retentionPolicy: 30d
+  objectStore:
+    helmHook: false
+  secret:
+    create: false
+    name: postgres-s3
+  scheduledBackups:
+    - name: daily
+      schedule: "0 0 3 * * *"
+      method: plugin
+      backupOwnerReference: self
+      pluginConfiguration:
+        name: barman-cloud.cloudnative-pg.io
+
+databases:
+  - name: tracearr
+    owner: tracearr
